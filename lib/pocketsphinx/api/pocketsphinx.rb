@@ -28,6 +28,7 @@ module Pocketsphinx
       attach_function :ps_set_search, [:decoder, :string], :int
 
       typedef :pointer, :seg_iter
+      typedef :pointer, :logmath
 
       attach_function :ps_seg_iter, [:decoder, :pointer], :seg_iter
       attach_function :ps_seg_next, [:seg_iter], :seg_iter
@@ -35,6 +36,10 @@ module Pocketsphinx
       attach_function :ps_seg_frames, [:seg_iter, :pointer, :pointer], :void
       attach_function :ps_seg_prob, [:seg_iter, :pointer, :pointer, :pointer], :int32
       attach_function :ps_seg_free, [:seg_iter], :void
+      attach_function :ps_get_logmath, [:decoder], :logmath
+
+      attach_function :logmath_get_base, [:logmath], FFI::NativeType::FLOAT64
+      attach_function :logmath_exp, [:logmath, :int], FFI::NativeType::FLOAT64
     end
   end
 end

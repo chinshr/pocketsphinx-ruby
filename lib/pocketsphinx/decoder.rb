@@ -7,8 +7,9 @@ module Pocketsphinx
     class Hypothesis < SimpleDelegator
       attr_accessor :path_score
 
-      def initialize(string, path_score)
+      def initialize(string, path_score, words)
         @path_score = path_score
+        @words = words
         super(string)
       end
     end
@@ -16,7 +17,7 @@ module Pocketsphinx
     Word = Struct.new(:word, :start_frame, :end_frame)
 
     attr_writer :ps_api
-    attr_accessor :configuration
+    attr_accessor :configuration, :logmath, :logbase
 
     # Initialize a Decoder
     #
@@ -114,12 +115,15 @@ module Pocketsphinx
     # @return [Hypothesis] Hypothesis (behaves like a string)
     def hypothesis
       mp_path_score = FFI::MemoryPointer.new(:int32, 1)
-
       hypothesis = ps_api.ps_get_hyp(ps_decoder, mp_path_score)
+
+      # logmath = ps_api.ps_get_logmath(ps_decoder)
+      # logbase = ps_api.logmath_get_base(logmath) # api_call :logmath_get_base, logmath
 
       hypothesis.nil? ? nil : Hypothesis.new(
         hypothesis,
-        mp_path_score.get_int32(0)
+        mp_path_score.get_int32(0),
+        words
       )
     end
 
@@ -131,11 +135,25 @@ module Pocketsphinx
       start_frame   = FFI::MemoryPointer.new(:int32, 1)
       end_frame     = FFI::MemoryPointer.new(:int32, 1)
 
-      seg_iter = ps_api.ps_seg_iter(ps_decoder, mp_path_score)
-      words    = []
+      # http://www.speech.cs.cmu.edu/sphinx/doc/doxygen/pocketsphinx/pocketsphinx_8h.html#dfd45d93c3fc9de6b7be89d5417f6abb
+      acoustic_score = FFI::MemoryPointer.new(:int32, 1)
+      language_score = FFI::MemoryPointer.new(:int32, 1)
+      language_backoff = FFI::MemoryPointer.new(:int32, 1)
+
+      seg_iter    = ps_api.ps_seg_iter(ps_decoder, mp_path_score)
+      words       = []
 
       until seg_iter.null? do
         ps_api.ps_seg_frames(seg_iter, start_frame, end_frame)
+
+        ps_api.ps_seg_prob(seg_iter, acoustic_score, language_score, language_backoff)
+
+        puts "$ acoustic_score: #{acoustic_score.get_int32(0)}"
+        puts "$ acoustic_score: #{logmath_exp(logmath, acoustic_score.get_int32(0))}"
+
+#puts "$ language_score: #{language_score.get_int32(0)}"
+#puts "$ language_backoff: #{language_backoff.get_int32(0)}"
+
         words << Pocketsphinx::Decoder::Word.new(
           ps_api.ps_seg_word(seg_iter),
           start_frame.get_int32(0),
